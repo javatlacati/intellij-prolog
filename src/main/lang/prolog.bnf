@@ -46,38 +46,49 @@
     ]
 }
 
+// The root rule represents a Prolog program and consists of one or more rules followed by a period.
 root ::= rule*
 private rule ::= !<<eof>> (toplevel_expr | trailing_expr) '.'
 
+// A toplevel expression is a predicate followed by an optional directive.
 toplevel_expr ::= (expr_head ((':-' | '-->') expr_body)?) {
 implements=['com.intellij.psi.PsiNameIdentifierOwner']
 mixin='tech.phosphorus.intellij.prolog.psi.PrologTopLevelDeclarationMixin'
 }
 
+// A trailing expression is a directive that modifies the behavior of the program.
 trailing_expr ::= ':-' expr_body
 
+// An expression head is the first part of a predicate and must be a predicate identifier.
 expr_head ::= predicate
 
+// An expression body consists of one or more primary expressions separated by logical operators.
 expr_body ::= primary
 
+// A predicate identifier is a lowercase identifier that represents a Prolog predicate.
 predicate ::= predicate_id parameter_list?
 
+// A common predicate is a predicate that can be referenced by other predicates.
 common_predicate ::= ref_predicate_id parameter_list?
 
+// A predicate identifier that can be used as a reference.
 predicate_id ::= const_id {
-implements=['com.intellij.psi.PsiNameIdentifierOwner']
-stubClass='tech.phosphorus.intellij.prolog.toolchain.PrologPredicateStub'
-mixin='tech.phosphorus.intellij.prolog.psi.PrologDeclarationMixin'
+    implements=['com.intellij.psi.PsiNameIdentifierOwner']
+    stubClass='tech.phosphorus.intellij.prolog.toolchain.PrologPredicateStub'
+    mixin='tech.phosphorus.intellij.prolog.psi.PrologDeclarationMixin'
 }
 
+// A predicate identifier that is used as a reference to a common predicate.
 ref_predicate_id ::= const_id {
-mixin='tech.phosphorus.intellij.prolog.psi.PrologPredicateReferenceMixin'
+    mixin='tech.phosphorus.intellij.prolog.psi.PrologPredicateReferenceMixin'
 }
 
+// The parameter_list rule matches an optional primary enclosed in parentheses ( and ), and includes a mixin for representing a list of parameters.
 parameter_list ::= '(' primary? ')' {
-mixin='tech.phosphorus.intellij.prolog.psi.PrologParameterListMixin'
+    mixin='tech.phosphorus.intellij.prolog.psi.PrologParameterListMixin'
 }
 
+// The logical_or rule matches a semicolon ; followed by a primary.
 logical_or ::= ';' primary
 
 logical_and ::= ',' primary
@@ -94,12 +105,21 @@ literal ::= string | integer | float
 
 list_constructor ::= '[' ']' | '[' primary '|' primary ']' | '[' primary ']'
 
+//list_constructor represents the construction of a list in Prolog.
+//It consists of one of three possible patterns:
+//An empty list: []
+//A list with a head and tail: [primary | primary]
+//A list with only a head: [primary]
 common_val ::= common_predicate | ident | literal | list_constructor | '_'
 
-private common_val_or_paren ::= common_val | '(' primary ')' | '{' primary '}'
+//common_val_or_paren represents a common value or an expression enclosed in parentheses or braces.
+//It consists of either a common_val, a primary expression enclosed in parentheses, or a primary expression enclosed in braces.
+common_val_or_paren ::= common_val | '(' primary ')' | '{' primary '}' | equiv_binary
 
-private primary ::= (common_val_or_paren | logical_not | operator_id) (common_val_or_paren | equiv_binary | logical_or  | operator_id)*
+//primary represents a primary Prolog expression, which can be a common_val_or_paren, a logical_not, or an operator_id followed by one or more common_val_or_paren, equiv_binary, logical_or, or operator_id.
+primary ::= common_val_or_paren (equiv_binary common_val_or_paren)*
 
+//ident represents an identifier in a Prolog expression, which can be either a const_id or an atom_id. It also includes the PrologAtomReferenceMixin mixin.
 ident ::= (const_id | atom_id) {
-mixin='tech.phosphorus.intellij.prolog.psi.PrologAtomReferenceMixin'
+    mixin='tech.phosphorus.intellij.prolog.psi.PrologAtomReferenceMixin'
 }
