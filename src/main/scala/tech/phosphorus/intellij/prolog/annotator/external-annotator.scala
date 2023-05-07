@@ -1,8 +1,7 @@
 package tech.phosphorus.intellij.prolog.annotator
 
-import java.nio.file.{Files, Paths}
-import com.intellij.lang.annotation.{Annotation, AnnotationBuilder, AnnotationHolder, ExternalAnnotator, HighlightSeverity}
-import com.intellij.notification.{NotificationDisplayType, NotificationGroup, NotificationGroupManager, NotificationType, SingletonNotificationManager}
+import com.intellij.lang.annotation.{AnnotationBuilder, AnnotationHolder, ExternalAnnotator, HighlightSeverity}
+import com.intellij.notification.{NotificationGroupManager, NotificationType}
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.{PsiDocumentManager, PsiElement, PsiFile}
 import tech.phosphorus.intellij.prolog.inspector.{Error, LinterReport, SwiPrologLinter}
@@ -10,6 +9,7 @@ import tech.phosphorus.intellij.prolog.psi._
 import tech.phosphorus.intellij.prolog.settings.PrologShowSettingsAction
 import tech.phosphorus.intellij.prolog.toolchain.PrologToolchain
 
+import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -30,7 +30,20 @@ class PrologExternalAnnotator extends ExternalAnnotator[AnnotatorTask, Array[Lin
   lazy val notificationManager: NotificationGroupManager = ApplicationManager.getApplication.getService(classOf[NotificationGroupManager])
 
   override def collectInformation(file: PsiFile): AnnotatorTask = {
-    if (!toolchain.validate()) {
+    if (toolchain.validate()) {
+      val aux = for {
+        f <- Option(file)
+        text <- Option(f.getText)
+        virtualFile <- Option(f.getVirtualFile)
+        parent <- Option(virtualFile.getParent)
+        path <- Option(parent.getPath)
+      } yield Task(
+        text,
+        path,
+        new SwiPrologLinter(toolchain)
+      )
+      return aux.orNull;
+    } else {
       if (!GlobalSwiAlertLock.alertAlready)
         notificationManager
           .getNotificationGroup("Prolog Plugin Notification")
@@ -41,15 +54,6 @@ class PrologExternalAnnotator extends ExternalAnnotator[AnnotatorTask, Array[Lin
       //          .notify("Prolog toolchain not detected", "configure a valid toolchain to enable external code linter", file.getProject, null, new PrologShowSettingsAction)
       GlobalSwiAlertLock.alertAlready = true
       Abort()
-    } else {
-      val optionalFile = Option(file)
-      if (optionalFile.isEmpty)
-        Abort() else
-        Task(
-          optionalFile.map(_.getText).getOrElse(""),
-          optionalFile.flatMap(x => Option(x.getVirtualFile)).flatMap(x => Option(x.getParent)).flatMap(x => Option(x.getPath)).getOrElse(""),
-          new SwiPrologLinter(toolchain)
-        )
     }
   }
 
